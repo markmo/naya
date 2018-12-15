@@ -2,6 +2,7 @@ from io import StringIO
 import json
 import unittest
 from naya.json import tokenize, TOKEN_TYPE, parse_string, parse, stream_array
+import os
 
 
 class TestJsonTokenization(unittest.TestCase):
@@ -236,9 +237,35 @@ class TestJsonTokenization(unittest.TestCase):
         self.assertListEqual([i for i in arr], ["Apples", {"key": "value"}, "Bananas"])
 
     def test_large_sample(self):
-        with open("tests/sample.json", "r", encoding="utf-8") as file:
+        filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'sample.json')
+        with open(filename, "r", encoding="utf-8") as file:
             obj2 = json.load(file)
-        with open("tests/sample.json", "r", encoding="utf-8") as file:
+        with open(filename, "r", encoding="utf-8") as file:
             obj = parse(file)
 
         self.assertDictEqual(obj, obj2)
+
+    def test_array_stream_of_documents(self):
+        arr = stream_array(tokenize(StringIO('[{"key": "value"}, {"key": "value"}]')))
+        self.assertListEqual(list(arr), [{"key": "value"}, {"key": "value"}])
+
+    def test_array_stream_of_documents_with_incomplete_json(self):
+        arr = []
+        with self.assertRaises(ValueError):
+            messages = stream_array(tokenize(StringIO('[{"key": "value"}, {"key": "value"}, {"INCOMPLETE')))
+            for message in messages:
+                arr.append(message)
+
+        self.assertListEqual(arr, [{"key": "value"}, {"key": "value"}])
+
+    def test_array_stream_of_documents_with_extra_invalid_json(self):
+        arr = stream_array(tokenize(StringIO('[{"key": "value"}, {"key": "value"}] EXTRA')))
+        self.assertListEqual(list(arr), [{"key": "value"}, {"key": "value"}])
+
+    def test_array_stream_of_values_with_incomplete_json(self):
+        arr = stream_array(tokenize(StringIO('["People", "Places", "INCOMPLETE')))
+        self.assertListEqual(list(arr), ["People", "Places"])
+
+    def test_array_stream_of_values_with_extra_invalid_json(self):
+        arr = stream_array(tokenize(StringIO('["People", "Places"], EXTRA')))
+        self.assertListEqual(list(arr), ["People", "Places"])

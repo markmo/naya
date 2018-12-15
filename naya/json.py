@@ -556,6 +556,8 @@ def stream_array(token_stream):
                         raise ValueError("Expected an array value.  Got '{}'".format(token))
                 else:
                     return token, None, None
+            elif token == "{":
+                return __parse(token_stream, (token_type, token))
             else:
                 raise ValueError("Array entries must be followed by ',' or ']'.  Got '{}'".format(token))
         else:
@@ -568,7 +570,7 @@ def stream_array(token_stream):
     token_type, token = next(token_stream)
     while True:
         while token is not None:
-            value, token_type, token  = process_token(token_type, token)
+            value, token_type, token = process_token(token_type, token)
             if value is None:
                 return
             yield value
